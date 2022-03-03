@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import sin, cos, tan
 import matplotlib.pyplot as plt
+import math
 plt.rcParams["font.family"] = "Helvetica"
 
 def degToRad(ang, reverse = False):
@@ -9,7 +10,8 @@ def degToRad(ang, reverse = False):
         res = ang * 180 / np.pi
     return res
 
-def boreholeStress(s1, s2, s3, pp, alpha, beta, gamma, delta, phi, v, dp, viz = True):
+def boreholeStress(s1, s2, s3, pp, alpha, beta, gamma, delta, phi, v,to,thetacoh,TS, viz = True):
+    thetacoh = thetacoh
     Ss = np.eye(3)
     
     Ss[0][0] = s1
@@ -53,36 +55,110 @@ def boreholeStress(s1, s2, s3, pp, alpha, beta, gamma, delta, phi, v, dp, viz = 
     Seff[0][0] = Seff[0][0] - Pp
     Seff[1][1] = Seff[1][1] - Pp
     Seff[2][2] = Seff[2][2] - Pp
-    
+    ###
     v = v
-    theta = np.linspace(0,2*np.pi, 100)
-    dp = dp
-    
-    Szz = Seff[2][2] - 2*v*(Seff[0][0] - Seff[1][1])*cos(2*theta) - 4*v*Seff[0][1]*sin(2*theta)
-    Stt = Seff[0][0] + Seff[1][1] - 2*(Seff[0][0] - Seff[1][1])*cos(2*theta)  - 4*Seff[0][1]*sin(2*theta) - dp
-    Stz = 2*(Seff[1][2]*cos(theta) - Seff[0][2]*sin(theta))
-    Srr = dp
-    
-    Stmax = 0.5*(Szz + Stt + ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
-    Stmin = 0.5*(Szz + Stt - ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
-    Srr = np.repeat(dp, len(Stmin))
-    
-    StmaxNorm = Stmax / Seff[0][0]
-    StminNorm = Stmin / Seff[0][0]
-    SrrNorm = Srr / Seff[0][0]
-    
+    theta = np.linspace(0,2*np.pi)
+    i = pp - (pp*.5)
+    thetacoh = degToRad(thetacoh)
+    diffvalues=[]
+    ivalues = []
+    solution = False
+    while i < pp*3:
+        Sigmas=[0]
+        dp = i - pp
+        Szz = Seff[2][2] - 2*v*(Seff[0][0] - Seff[1][1])*cos(2*theta) - 4*v*Seff[0][1]*sin(2*theta)
+        Stt = Seff[0][0] + Seff[1][1] - 2*(Seff[0][0] - Seff[1][1])*cos(2*theta)  - 4*Seff[0][1]*sin(2*theta) - dp
+        Stz = 2*(Seff[1][2]*cos(theta) - Seff[0][2]*sin(theta))
+        Srr = np.abs(dp)
+        Stmax = 0.5*(Szz + Stt + ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
+        Stmin = 0.5*(Szz + Stt - ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
+        Srr = np.repeat(dp, len(Stmin))
+        StmaxNorm = Stmax 
+        StminNorm = Stmin
+        SrrNorm = Srr
+        Stmaxmax = np.amax(StmaxNorm)
+        Stminmin = np.amax(StminNorm)
+        Srrmin = np.amin(Srr)
+        Sigmas.append(Srrmin)
+        Sigmas.append(Stmaxmax)
+        Sigmas.append(Stminmin)
+        Sigmas.pop(0)
+        Sigmassort = np.sort(Sigmas,axis=None)
+        sider1 = to*np.cos(thetacoh)
+        sider2 = .5*np.sin(thetacoh)*(Sigmassort[2]+Sigmassort[0])
+        sider = sider1+sider2
+        sideleft = .5*(Sigmassort[2]-Sigmassort[0])
+        sider = np.round(sider,6)
+        sideleft = np.round(sideleft,6)
+        diff = np.abs(sider-sideleft)
+        if diff <= .3:
+            Pmin = i
+            solution = True
+            break
+        else:
+            diffvalues.append(diff)
+            ivalues.append(i)
+            i+=.2
+    if solution==False:
+        minvalspot = diffvalues.index(np.amin(diffvalues))
+        Pmin = ivalues[minvalspot]
+    solution = False
+    diffvalues = []
+    jvalues=[]
+    j = Pmin + (Pmin*.25)
+    while j < Pmin*3:
+        Sigmas=[0]
+        dp = j - pp
+        Szz = Seff[2][2] - 2*v*(Seff[0][0] - Seff[1][1])*cos(2*theta) - 4*v*Seff[0][1]*sin(2*theta)
+        Stt = Seff[0][0] + Seff[1][1] - 2*(Seff[0][0] - Seff[1][1])*cos(2*theta)  - 4*Seff[0][1]*sin(2*theta) - dp
+        Stz = 2*(Seff[1][2]*cos(theta) - Seff[0][2]*sin(theta))
+        Srr = dp
+        Stmax = 0.5*(Szz + Stt + ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
+        Stmin = 0.5*(Szz + Stt - ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
+        Srr = np.repeat(dp, len(Stmin))
+        StmaxNorm = Stmax 
+        StminNorm = Stmin
+        SrrNorm = np.abs(Srr)
+        Stmaxmax = np.amin(StmaxNorm) 
+        Stminmin = np.amin(StminNorm) 
+        Srrmin = np.amin(Srr) 
+        Sigmas.append(np.abs(Srrmin))
+        Sigmas.append(np.abs(Stmaxmax))
+        Sigmas.append(np.abs(Stminmin))
+        Sigmas.pop(0)
+        Sigmassort = np.sort(Sigmas,axis=None)
+        sider1 = 3*Sigmassort[0]
+        sider2 = -1*Sigmassort[2]  + TS - pp 
+        sider = sider1 + sider2
+        sider = np.abs(np.round(sider,6))
+        j = np.round(j,6)
+        diff = np.abs(j-sider)
+        if j >= sider:
+            Pmax = j
+            solution = True
+            break
+        else: 
+            diffvalues.append(diff)
+            jvalues.append(j)
+            j+=.01
+    if solution == False:
+        minvalspot = diffvalues.index(np.amin(diffvalues))
+        Pmax = jvalues[minvalspot]
+
+  ###
+
     if viz == True:
-        plt.plot(degToRad(theta[:51], reverse = True), StmaxNorm[:51], 
+       plt.plot(degToRad(theta[:51], reverse = True), StmaxNorm[:51], 
                  label = "$\sigma_{t \ max}$", color = "red")
-        plt.plot(degToRad(theta[:51], reverse = True), StminNorm[:51], 
+       plt.plot(degToRad(theta[:51], reverse = True), StminNorm[:51], 
                  label = "$\sigma_{t \ min}$", color = "blue")
-        plt.plot(degToRad(theta[:51], reverse = True), SrrNorm[:51], 
+       plt.plot(degToRad(theta[:51], reverse = True), SrrNorm[:51], 
                  label = "$\sigma_{rr}$", color = "green")
-        plt.xlabel("borehole angle ($\degree$)")
-        plt.ylabel("Effective stress (normalized with $\sigma_1$)")
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+       plt.xlabel("borehole angle ($\degree$)")
+       plt.ylabel("Effective stress (normalized with $\sigma_1$)")
+       plt.legend()
+       plt.tight_layout()
+       plt.show()
     
     resultDict = {"Szz":Szz,
                   "stt":Stt,
@@ -92,7 +168,7 @@ def boreholeStress(s1, s2, s3, pp, alpha, beta, gamma, delta, phi, v, dp, viz = 
                   "Stmin":Stmin
         }
 
-    return resultDict
+    return Pmin,Pmax
 
 def MohrCoulombSlope(mu):
     """
@@ -134,4 +210,77 @@ def getMaxStrength(s1,s3,slope):
     res = s1 - slope*s3
     return res
 
-#boreholeStress(3.12,3.12,1,0,0,65,0,45,30,0.25,0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+''''
+  while j < pp*3:
+        Sigmas=[0]
+        dp = j - pp
+        Szz = Seff[2][2] - 2*v*(Seff[0][0] - Seff[1][1])*cos(2*theta) - 4*v*Seff[0][1]*sin(2*theta)
+        Stt = Seff[0][0] + Seff[1][1] - 2*(Seff[0][0] - Seff[1][1])*cos(2*theta)  - 4*Seff[0][1]*sin(2*theta) - dp
+        Stz = 2*(Seff[1][2]*cos(theta) - Seff[0][2]*sin(theta))
+        Srr = dp
+        Stmax = 0.5*(Szz + Stt + ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
+        Stmin = 0.5*(Szz + Stt - ((Szz - Stt)**2 + 4*(Stz)**2)**0.5)
+        Srr = np.repeat(dp, len(Stmin))
+        StmaxNorm = Stmax 
+        StminNorm = Stmin
+        SrrNorm = np.abs(Srr)
+        Stmaxmax = np.amin(StmaxNorm) 
+        Stminmin = np.amin(StminNorm) 
+        Srrmin = np.amin(Srr) 
+        Sigmas.append(np.abs(Srrmin))
+        Sigmas.append(np.abs(Stmaxmax))
+        Sigmas.append(np.abs(Stminmin))
+        Sigmas.pop(0)
+        Sigmassort = np.sort(Sigmas,axis=None)
+        sider1 = 3*Sigmassort[0]
+        sider2 = -1*Sigmassort[2]  + TS - pp 
+        sider = sider1 + sider2
+        sider = np.abs(np.round(sider,4))
+        j = np.round(j,4)
+        diff = np.abs(j-sider)
+        if diff<.5:
+            Pmax = j
+            print(Pmax)
+            break
+        else:
+            j+=.1
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
